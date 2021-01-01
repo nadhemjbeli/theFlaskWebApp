@@ -260,3 +260,45 @@ class UserAdminView(ModelView, ActionsMixin):
             flash('You are not allowed to delete users.', 'warning')
             return False
         return True
+
+from flask_dance.contrib.facebook import make_facebook_blueprint, facebook
+facebook_blueprint = make_facebook_blueprint(scope='email', redirect_to='auth.facebook_login')
+@auth.route("/facebook-login")
+def facebook_login():
+    if not facebook.authorized:
+        return redirect(url_for("facebook.login"))
+    resp = facebook.get("/me?fields=name,email")
+    user = User.query.filter_by(username=resp.json()
+    ["email"]).first()
+    if not user:
+        user = User(resp.json()["email"], '')
+    db.session.add(user)
+    db.session.commit()
+    login_user(user)
+    flash(
+        'Logged in as name=%s using Facebook login' % (
+            resp.json()['name']), 'success' )
+    return redirect(request.args.get('next', url_for('auth.home')))
+from flask_dance.contrib.google import make_google_blueprint, google
+google_blueprint = make_google_blueprint(
+    scope=[
+        "openid",
+        "https://www.googleapis.com/auth/userinfo.email",
+        "https://www.googleapis.com/auth/userinfo.profile"],
+    redirect_to='auth.google_login')
+@auth.route("/google-login")
+def google_login():
+    if not google.authorized:
+        return redirect(url_for("google.login"))
+    resp = google.get("/oauth2/v1/userinfo")
+    user = User.query.filter_by(username=resp.json()["email"]).first()
+    if not user:
+        user = User(resp.json()["email"], '')
+    db.session.add(user)
+    db.session.commit()
+    login_user(user)
+    flash(
+        'Logged in as name=%s using Google login' % (
+            resp.json()['name']), 'success' )
+    return redirect(request.args.get('next', url_for('auth.home')))
+
